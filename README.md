@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # AI Health Web Assignment
 
 ## Alembic Migration Guide
@@ -21,3 +22,6 @@ uv run alembic upgrade head
 ```bash
 uv run alembic downgrade -1
 ```
+=======
+# AH_web_development_5team
+>>>>>>> 3695b37ae33b35a2bc3af1326bc2b76341eb88cb
