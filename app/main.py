@@ -10,6 +10,7 @@ from app.apis.admin_auth import router as admin_router
 from app.apis.auth import router as auth_router
 from app.apis.mypage import router as mypage_router
 from app.apis.patient_write import router as patient_write_router
+from app.apis.patient_read import router as patient_read_router
 from app.apis.practice_apis import router as practice_router
 
 API_PREFIX = "/api/v1"
@@ -22,6 +23,8 @@ app.include_router(auth_router, prefix=API_PREFIX)
 app.include_router(mypage_router, prefix=API_PREFIX)
 app.include_router(admin_router, prefix=API_PREFIX)
 app.include_router(patient_write_router, prefix=API_PREFIX)  # 담당자 A: 환자 등록·수정·삭제
+app.include_router(patient_read_router, prefix=API_PREFIX)  # 담당자 B: 환자 목록·상세 조회
+
 
 # NFR-USER-003: 모든 요청의 처리 시간 측정 (X-Process-Time 헤더, 3초 초과 시 경고 로그)
 register_performance_middleware(app)

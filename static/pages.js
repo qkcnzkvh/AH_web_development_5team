@@ -35,7 +35,7 @@ const pages = {
     },
 
     async renderPatients(params = {}) {
-        const patients = await apis.getPatients(params);
+        const patients = (await apis.getPatients(params)).items;
         const html = await utils.loadTemplate('patients');
         if (state.currentPage !== '/patients') return;
         const app = document.getElementById('app');
@@ -62,7 +62,7 @@ const pages = {
                 <td>${p.id}</td>
                 <td>${p.name}</td>
                 <td>${p.age}</td>
-                <td>${p.gender === 'male' ? '남성' : '여성'}</td>
+                <td>${p.gender === 'M' ? '남성' : p.gender === 'F' ? '여성' : '-'}</td>
                 <td>${utils.formatPhoneNumber(p.phone_number)}</td>
                 <td><button onclick="navigate('/patients/${p.id}')">상세보기</button></td>
             </tr>
@@ -88,7 +88,7 @@ const pages = {
         app.innerHTML = html;
         
         // 환자 정보 표시
-        document.getElementById('patient-name').innerText = `${patient.name} (${patient.gender === 'male' ? '남성' : '여성'})`;
+        document.getElementById('patient-name').innerText = `${patient.name} (${patient.gender === 'M' ? '남성' : patient.gender === 'F' ? '여성' : '-'})`;
         document.getElementById('patient-info').innerText = `나이: ${patient.age}세 | 연락처: ${utils.formatPhoneNumber(patient.phone_number)}`;
         
         // 수정 폼 초기값 설정
