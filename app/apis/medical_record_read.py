@@ -8,7 +8,7 @@
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Path, status
 from pydantic import BaseModel, field_serializer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +20,7 @@ from app.models.patient import Patient
 from app.models.user import User
 from app.models.xray_image import XrayImage
 
-RECORD_NOT_FOUND_MESSAGE = "해당 진료기록을 찾을 수 없습니다."
+RECORD_NOT_FOUND_MESSAGE = "진료기록을 찾을 수 없습니다."
 
 # DB에 상대 경로로 저장된 이미지(예: xray/a.jpg)를 응답 URL로 바꿀 때 붙이는 prefix.
 # main.py에서 media 폴더를 "/media"로 마운트하고 있다.
@@ -32,7 +32,7 @@ MEDIA_URL_PREFIX = "/media"
 # ============================================================
 
 class MedicalRecordDetailResponse(BaseModel):
-    record_id: int
+    id: int  # 진료기록 ID (명세서 11.2, 프론트 record.id)
     patient_id: int
     patient_name: str
     chart_number: str
@@ -91,7 +91,7 @@ async def get_record_detail(
 
     record, patient_name, image_url = row
     return MedicalRecordDetailResponse(
-        record_id=record.id,
+        id=record.id,
         patient_id=record.patient_id,
         patient_name=patient_name,
         chart_number=record.chart_number,
@@ -115,7 +115,7 @@ router = APIRouter(tags=["진료기록"])
     response_model=MedicalRecordDetailResponse,
 )
 async def get_medical_record_handler(
-    record_id: int,
+    record_id: int = Path(ge=1, description="진료기록 고유 ID"),
     _user: User = Depends(require_staff),
     db: AsyncSession = Depends(async_get_db),
 ):
