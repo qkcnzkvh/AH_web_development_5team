@@ -81,7 +81,7 @@ const pages = {
 
     async renderPatientDetail(patientId) {
         const patient = await apis.getPatient(patientId);
-        const records = await apis.getPatientMedicalRecords(patientId);
+        const records = (await apis.getPatientMedicalRecords(patientId)).items;
         const html = await utils.loadTemplate('patient-detail');
         if (!state.currentPage.startsWith('/patients/')) return;
         const app = document.getElementById('app');

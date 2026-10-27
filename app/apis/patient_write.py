@@ -9,9 +9,6 @@
 #   수정·삭제: require_staff (STAFF·ADMIN, PENDING은 403)
 # - 응답은 공통 PatientResponse(app/schemas/patient.py) 사용
 
-import logging
-from pathlib import Path as FilePath
-
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
@@ -19,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db.databases import async_get_db
 from app.core.security import require_medical_staff, require_staff
+from app.core.storage import delete_xray_file
 from app.core.validators import normalize_phone
 from app.models.enums import Gender
 from app.models.medical_record import MedicalRecord
@@ -27,18 +25,12 @@ from app.models.user import User
 from app.models.xray_image import XrayImage
 from app.schemas.patient import PatientResponse
 
-logger = logging.getLogger(__name__)
-
 # patients.age 컬럼은 SMALLINT, 사람 나이 기준으로 0~150 범위만 허용
 AGE_MIN = 0
 AGE_MAX = 150
 
 PATIENT_NOT_FOUND = "환자를 찾을 수 없습니다."
 NOTHING_TO_UPDATE = "수정할 항목이 없습니다."
-
-# 프로젝트 루트 (main.py의 BASE_DIR과 같은 위치). /media/... URL을 실제 파일 경로로 바꿀 때 사용
-BASE_DIR = FilePath(__file__).resolve().parent.parent.parent
-MEDIA_DIR = BASE_DIR / "media"
 
 # 프론트(male/female)와 DB Enum(M/F) 모두 받을 수 있게 변환
 _GENDER_ALIASES = {
@@ -121,28 +113,6 @@ async def delete_patient_row(db: AsyncSession, patient: Patient) -> None:
 
 # ───────────────────────── 서비스 ─────────────────────────
 
-def _media_url_to_path(image_url: str) -> FilePath | None:
-    """/media/xray/{파일명} → {프로젝트}/media/xray/{파일명}. media 폴더 밖을 가리키면 None."""
-    path = (BASE_DIR / image_url.lstrip("/")).resolve()
-    if not path.is_relative_to(MEDIA_DIR.resolve()):
-        return None
-    return path
-
-
-def _delete_image_files(image_urls: list[str]) -> None:
-    # TODO: 담당자 C의 공통 이미지 삭제 함수가 머지되면 그 함수로 교체
-    for image_url in image_urls:
-        path = _media_url_to_path(image_url)
-        if path is None:
-            logger.warning("media 폴더 밖의 이미지 경로라 삭제하지 않음: %s", image_url)
-            continue
-        try:
-            path.unlink(missing_ok=True)  # 파일이 이미 없으면 무시
-        except OSError:
-            # DB 삭제는 이미 끝났으므로 응답은 성공으로 두고 로그만 남김
-            logger.warning("X-Ray 이미지 파일 삭제 실패: %s", path, exc_info=True)
-
-
 async def get_patient_or_404(db: AsyncSession, patient_id: int) -> Patient:
     patient = await find_patient_by_id(db, patient_id)
     if patient is None:
@@ -183,8 +153,10 @@ async def delete_patient(db: AsyncSession, patient_id: int) -> None:
     image_urls = await find_xray_image_urls(db, patient_id)
     await delete_patient_row(db, patient)
 
-    # DB CASCADE는 실제 파일을 지우지 않으므로 커밋 후 직접 삭제
-    _delete_image_files(image_urls)
+    # DB CASCADE는 실제 파일을 지우지 않으므로 커밋 후 공통 함수로 삭제
+    # (파일이 없으면 무시, 삭제 실패는 로그만 남김 → DB 삭제는 이미 끝났으므로 응답은 성공)
+    for image_url in image_urls:
+        delete_xray_file(image_url)
 
 
 # ───────────────────────── 라우터 ─────────────────────────
