@@ -1,10 +1,6 @@
 import asyncio
-import re
-from datetime import UTC, datetime, timedelta
 
-import jwt
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -12,143 +8,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.db.databases import async_get_db
-from app.core.security import hash_password, verify_password  # Argon2 (공통 모듈)
+from app.core.security import (
+    REFRESH_COOKIE_NAME,
+    REFRESH_TOKEN_TYPE,
+    clear_refresh_cookie,
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    hash_password,
+    set_refresh_cookie,
+    unauthorized,
+    verify_password,
+)
+from app.core.validators import normalize_phone, validate_password
 from app.models.enums import Department, Gender, Role
 from app.models.user import User
-
-
-# ============================================================
-# 공통 입력 검증
-# ============================================================
-
-PASSWORD_ERROR_MESSAGE = (
-    "비밀번호는 8~20자이며 대문자, 소문자, 특수문자를 각각 1개 이상 포함해야 합니다."
-)
-PHONE_ERROR_MESSAGE = "전화번호는 01012345678 형식(숫자 10~11자리)이어야 합니다."
-
-PASSWORD_MIN_LENGTH = 8
-PASSWORD_MAX_LENGTH = 20
-
-_PHONE_PATTERN = re.compile(r"01[016789][0-9]{7,8}")
-
-
-def normalize_phone(value: str) -> str:
-    digits = re.sub(r"[^0-9]", "", value)
-
-    if not _PHONE_PATTERN.fullmatch(digits):
-        raise ValueError(PHONE_ERROR_MESSAGE)
-
-    return digits
-
-
-def validate_password(value: str) -> str:
-    if (
-        not PASSWORD_MIN_LENGTH <= len(value) <= PASSWORD_MAX_LENGTH
-        or not re.search(r"[A-Z]", value)
-        or not re.search(r"[a-z]", value)
-        or not re.search(r"[^A-Za-z0-9]", value)
-    ):
-        raise ValueError(PASSWORD_ERROR_MESSAGE)
-
-    return value
-
-
-# ============================================================
-# JWT 및 현재 로그인 사용자 조회
-# ============================================================
-
-ACCESS_TOKEN_TYPE = "access"
-REFRESH_TOKEN_TYPE = "refresh"
-
-REFRESH_COOKIE_NAME = "refresh_token"
-REFRESH_COOKIE_PATH = "/api/v1/auth"
-
-bearer_scheme = HTTPBearer(auto_error=False)
-
-
-def _unauthorized() -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="인증 정보가 유효하지 않습니다.",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-
-def _create_token(
-    user_id: int,
-    token_type: str,
-    expires_delta: timedelta,
-) -> str:
-    now = datetime.now(UTC)
-
-    payload = {
-        "user_id": user_id,
-        "type": token_type,
-        "iat": now,
-        "exp": now + expires_delta,
-    }
-
-    return jwt.encode(
-        payload,
-        settings.JWT_SECRET_KEY,
-        algorithm=settings.JWT_ALGORITHM,
-    )
-
-
-def create_access_token(user_id: int) -> str:
-    return _create_token(
-        user_id,
-        ACCESS_TOKEN_TYPE,
-        timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
-    )
-
-
-def create_refresh_token(user_id: int) -> str:
-    return _create_token(
-        user_id,
-        REFRESH_TOKEN_TYPE,
-        timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
-    )
-
-
-def decode_token(token: str, expected_type: str) -> int:
-    try:
-        payload = jwt.decode(
-            token,
-            settings.JWT_SECRET_KEY,
-            algorithms=[settings.JWT_ALGORITHM],
-        )
-
-        if payload.get("type") != expected_type:
-            raise _unauthorized()
-
-        return int(payload["user_id"])
-
-    except (jwt.InvalidTokenError, KeyError, ValueError, TypeError):
-        raise _unauthorized()
-
-
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
-    db: AsyncSession = Depends(async_get_db),
-) -> User:
-    if credentials is None:
-        raise _unauthorized()
-
-    user_id = decode_token(credentials.credentials, ACCESS_TOKEN_TYPE)
-    user = await get_by_id(db, user_id)
-
-    # 탈퇴한 회원의 기존 토큰 차단 (공통 정책: 401로 통일)
-    if user is None:
-        raise _unauthorized()
-
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="비활성화된 계정입니다.",
-        )
-
-    return user
 
 
 # ============================================================
@@ -390,7 +264,7 @@ async def refresh_access_token(
     user = await get_by_id(db, user_id)
 
     if user is None:
-        raise _unauthorized()
+        raise unauthorized()
 
     if not user.is_active:
         raise HTTPException(
@@ -406,23 +280,11 @@ async def refresh_access_token(
 # ============================================================
 
 router = APIRouter(
-    prefix="/api/v1/auth",
+    prefix="/auth",
     tags=["auth"],
 )
 
 _ACCESS_EXPIRES_IN = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-
-
-def _set_refresh_cookie(response: Response, token: str) -> None:
-    response.set_cookie(
-        key=REFRESH_COOKIE_NAME,
-        value=token,
-        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
-        httponly=True,
-        secure=settings.COOKIE_SECURE,
-        samesite="lax",
-        path=REFRESH_COOKIE_PATH,
-    )
 
 
 @router.post(
@@ -449,7 +311,7 @@ async def login_api(
         body.password,
     )
 
-    _set_refresh_cookie(response, refresh_token)
+    set_refresh_cookie(response, refresh_token)
 
     return LoginResponse(
         access_token=access_token,
@@ -464,7 +326,7 @@ async def refresh_api(
     db: AsyncSession = Depends(async_get_db),
 ):
     if not refresh_token:
-        raise _unauthorized()
+        raise unauthorized()
 
     access_token = await refresh_access_token(db, refresh_token)
 
@@ -480,11 +342,5 @@ async def refresh_api(
 )
 async def logout_api():
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
-    response.delete_cookie(
-        key=REFRESH_COOKIE_NAME,
-        path=REFRESH_COOKIE_PATH,
-        httponly=True,
-        secure=settings.COOKIE_SECURE,
-        samesite="lax",
-    )
+    clear_refresh_cookie(response)
     return response

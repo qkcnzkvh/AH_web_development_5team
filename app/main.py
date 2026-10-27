@@ -5,11 +5,25 @@ from fastapi import FastAPI
 from starlette.staticfiles import StaticFiles
 from starlette.responses import FileResponse
 
+from app.apis.admin_auth import register_performance_middleware
+from app.apis.admin_auth import router as admin_router
+from app.apis.auth import router as auth_router
+from app.apis.mypage import router as mypage_router
 from app.apis.practice_apis import router as practice_router
+
+API_PREFIX = "/api/v1"
 
 app = FastAPI(title="Practice API")
 
 app.include_router(practice_router)
+app.include_router(auth_router, prefix=API_PREFIX)
+# /users/me 가 /users/{user_id} 계열 경로보다 먼저 매칭되도록 mypage를 admin보다 먼저 등록
+app.include_router(mypage_router, prefix=API_PREFIX)
+app.include_router(admin_router, prefix=API_PREFIX)
+
+# NFR-USER-003: 모든 요청의 처리 시간 측정 (X-Process-Time 헤더, 3초 초과 시 경고 로그)
+register_performance_middleware(app)
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 

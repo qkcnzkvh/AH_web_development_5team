@@ -1,7 +1,7 @@
 import uuid as uuid_pkg
-from datetime import UTC, datetime
+from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, text
+from sqlalchemy import Boolean, DateTime, func, text
 from sqlalchemy.dialects.mysql import CHAR
 from sqlalchemy.orm import Mapped, mapped_column
 from uuid6 import uuid7
@@ -14,12 +14,16 @@ class UUIDMixin:
 
 
 class TimestampMixin:
+    # 파이썬 default 없이 DB의 current_timestamp만 사용 (요청 시점의 시각이 저장됨)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now(UTC), server_default=text("current_timestamp(0)")
+        DateTime, server_default=text("current_timestamp(0)")
     )
     updated_at: Mapped[datetime | None] = mapped_column(
-        DateTime, nullable=True, onupdate=datetime.now(UTC), server_default=text("current_timestamp(0)")
-    )
+        DateTime,
+        nullable=True,
+        server_default=text("current_timestamp(0)"),
+        onupdate=func.now(),
+    )   
 
 
 class SoftDeleteMixin:

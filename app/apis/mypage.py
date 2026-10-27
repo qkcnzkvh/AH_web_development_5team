@@ -145,7 +145,7 @@ async def withdraw(db: AsyncSession, user: User) -> None:
 
 # ───────────────────────── 라우터 ─────────────────────────
 
-router = APIRouter(prefix="/api/v1/users", tags=["마이페이지"])
+router = APIRouter(prefix="/users", tags=["마이페이지"])
 
 
 @router.get(
