@@ -97,8 +97,8 @@
 
 | 순서 | 요구사항 ID | 기능 | Method | Endpoint | 권한 |
 |---:|---|---|---|---|---|
-| 1 | `REQ-PRED-001` | AI 모델 활용 폐렴 예측 | `POST` | `/medical-records/{record_id}/predict` | `STAFF`, `ADMIN` |
-| 2 | `REQ-PRED-002` | AI 모델 활용 폐렴 예측 결과 조회 | `GET` | `/medical-records/{record_id}/analyses` | `STAFF`, `ADMIN` |
+| 1 | `REQ-PRED-001` | AI 폐렴 예측 수행 | `POST` | `/medical-records/{record_id}/predict` | `STAFF`, `ADMIN` |
+| 2 | `REQ-PRED-002` | AI 폐렴 예측 결과 목록 조회 | `GET` | `/medical-records/{record_id}/analyses` | `STAFF`, `ADMIN` |
 
 - 두 엔드포인트는 프론트엔드(`static/apis.js`의 `predictPneumonia`, `getMedicalRecordAnalyses`)가 이미 호출하는 경로와 같다. 프론트엔드는 경로를 바꾸지 않는다.
 - 진료기록 상세 조회(`GET /medical-records/{record_id}`)는 5일차 11장을 따르며 이 문서에서 변경하지 않는다.
@@ -107,7 +107,7 @@
 
 ---
 
-## 4. AI 모델 활용 폐렴 예측 — `REQ-PRED-001`
+## 4. AI 폐렴 예측 수행 — `REQ-PRED-001`
 
 진료기록 상세 페이지의 **AI 예측 결과보기** 버튼을 클릭하면 호출한다.
 
@@ -202,7 +202,7 @@ API는 모델 내부를 알지 못하고 아래 함수만 호출한다. 현재 �
 
 ---
 
-## 5. AI 모델 활용 폐렴 예측 결과 조회 — `REQ-PRED-002`
+## 5. AI 폐렴 예측 결과 목록 조회 — `REQ-PRED-002`
 
 진료기록 상세 페이지의 **AI 예측 결과** 섹션에서 해당 진료기록의 예측 결과를 목록으로 보여 준다.
 

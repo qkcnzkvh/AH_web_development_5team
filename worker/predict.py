@@ -23,8 +23,14 @@ model.fc = nn.Sequential(
 )
 
 
+# 모델을 한 번만 로드 (서버 시작 시 lifespan에서 load_model()을 호출한다)
+_loaded_model = None
+
+
 def load_model():
-    """학습된 가중치를 불러온다."""
+    """학습된 가중치를 불러와 전역에 보관한다. (서버 시작 시 한 번 호출)"""
+    global _loaded_model
+
     checkpoint = torch.load(
         MODEL_PATH,
         map_location=DEVICE,
@@ -35,6 +41,7 @@ def load_model():
     model.to(DEVICE)
     model.eval()
 
+    _loaded_model = model
     return model
 
 
@@ -48,9 +55,6 @@ transform = transforms.Compose([
         std=[0.229, 0.224, 0.225],
     ),
 ])
-
-# 모델을 한 번만 로드
-_loaded_model = None
 
 
 def predict_pneumonia(image: Image.Image) -> dict:
