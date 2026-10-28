@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     # HTTPS 환경에서만 True (로컬 http 개발 환경은 False)
     COOKIE_SECURE: bool = False
+    # AI 예측에 사용하는 모델 이름·버전 (ai_analysis_results.ai_model에 저장, 최대 50자)
+    # 모델 평가(6장)를 통과한 모델의 이름과 같아야 한다. 재학습 시 버전을 올린다. (예: resnet18-v2)
+    AI_MODEL_NAME: str = "resnet18-v1"
 
     model_config = {
         "env_file": ".env",

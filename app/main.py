@@ -1,4 +1,7 @@
+import asyncio
+import logging
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -14,12 +17,29 @@ from app.apis.patient_read import router as patient_read_router
 from app.apis.medical_record import router as medical_record_router
 from app.apis.medical_record_read import router as medical_record_read_router
 from app.apis.practice_apis import router as practice_router
-from app.apis.pneumonia import router as pneumonia_router
+from app.apis.ai_prediction import router as ai_prediction_router
+from worker.predict import load_model
 
 
 API_PREFIX = "/api/v1"
 
-app = FastAPI(title="Practice API")
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # NFR-PRED-002: 첫 예측 요청이 3초 안에 끝나도록 AI 모델을 서버 시작 시 한 번만 로드한다.
+    # 로드에 실패해도 서버는 뜨고, 예측 API만 503을 반환한다.
+    try:
+        await asyncio.to_thread(load_model)
+        app.state.model_loaded = True
+    except Exception:
+        logger.exception("AI 모델 로드 실패: 예측 API는 503을 반환합니다.")
+        app.state.model_loaded = False
+    yield
+
+
+app = FastAPI(title="Practice API", lifespan=lifespan)
 
 app.include_router(practice_router)
 app.include_router(auth_router, prefix=API_PREFIX)
@@ -30,7 +50,7 @@ app.include_router(patient_write_router, prefix=API_PREFIX)  # 담당자 A: 환�
 app.include_router(patient_read_router, prefix=API_PREFIX)  # 담당자 B: 환자 목록·상세 조회
 app.include_router(medical_record_router, prefix=API_PREFIX)  # 담당자 C: 진료기록 등록·목록 조회
 app.include_router(medical_record_read_router, prefix=API_PREFIX) #담당자 D
-app.include_router(pneumonia_router, prefix=API_PREFIX)
+app.include_router(ai_prediction_router, prefix=API_PREFIX)  # AI 폐렴 예측 (6일차)
 
 
 # NFR-USER-003: 모든 요청의 처리 시간 측정 (X-Process-Time 헤더, 3초 초과 시 경고 로그)
