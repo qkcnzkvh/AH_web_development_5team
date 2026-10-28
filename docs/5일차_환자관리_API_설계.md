@@ -65,8 +65,10 @@
 |---|---|---|
 | 회원 권한 (`role`) | `PENDING`, `STAFF`, `ADMIN` | 환자·진료기록 API 접근 가능 여부 (`STAFF`, `ADMIN`만 허용) |
 | 부서 (`department`) | `MEDICAL`, `DEV`, `RESEARCH` | 환자 등록·진료기록 등록 가능 여부 (`MEDICAL`만 허용) |
-
 `role`과 `department`는 서로 다른 정보이므로 각각 검사한다. `STAFF`라고 해서 `MEDICAL` 부서인 것은 아니다.
+
+`department`는 마이페이지(User API `REQ-USER-007`)에서 변경할 수 있지만, `STAFF`가 부서를 변경하면 `role`이 `PENDING`으로 전환되어 관리자 재승인 전까지 환자·진료기록 API에 접근할 수 없다. 따라서 `STAFF`가 스스로 `MEDICAL`로 부서를 바꿔 환자·진료기록을 등록하는 것은 불가능하다. (`ADMIN`은 부서 변경 시에도 권한이 유지된다.)
+
 
 ### 2.2 공통 에러 응답
 
@@ -703,11 +705,10 @@ Access Token 유효기간은 30분이다. (User API 공통)
 | 1 | `page`, `size` 검증 범위(`page` 1 이상, `size` 1~100) | 2.5, 10.1 | 4일차 회원 목록(`/users`)에는 검증 범위가 없다. 회원 목록에도 같은 범위를 적용할지 함께 결정한다. |
 | 2 | 이미지가 없는 진료기록의 `xray_image_url` 값 | 11.2 | 등록 시 이미지가 필수이므로 `null`이 될 일은 없다고 정리할 수 있다. |
 | 3 | 3초 초과 시 알림(Slack 등) 연동 여부와 로그 레벨 | 12.2 | |
-| 4 | `MEDICAL` 제한의 신뢰 범위 | 2.1, 4장, 9장 | 4일차 11장에서 사용자가 마이페이지로 `department`를 직접 변경할 수 있으므로, `MEDICAL` 제한은 사용자의 부서 선언에 의존한다. |
-| 5 | 성별 `male`, `female` 허용 문구 유지 여부 | 2.1, 4.2, 5.1 | 4일차 회원가입은 `M`, `F`만 받는다. 프론트엔드가 `M`/`F`를 보내도록 통일하면 삭제할 수 있다. |
-| 6 | 진료기록 목록 경로(`/patients/{patient_id}/medical-records`)를 둘 라우터 | 3장, 10장 | 진료기록 라우터 prefix를 `/medical-records`로 두면 이 경로가 들어가지 못한다. 환자 라우터에 두거나 prefix 없는 별도 라우터로 분리하는 방안을 C와 A·B가 합의한다. |
-| 7 | `medical_records`의 `updated_at` 기본값 | 9.3, 11.2 | `server_default` 확인은 `patients`만 했다. C·D가 `medical_records` 마이그레이션을 확인하고, 기본값이 없으면 두 예시의 `updated_at`을 `null`로 되돌린다. |
-| 8 | 비활성 계정(`is_active = false`)의 `403` 처리 | 2.2 | `require_staff`가 비활성 계정을 막는지 실제 코드로 확인한 뒤 2.2 문구를 유지할지 정한다. |
+| 4 | 성별 `male`, `female` 허용 문구 유지 여부 | 2.1, 4.2, 5.1 | 4일차 회원가입은 `M`, `F`만 받는다. 프론트엔드가 `M`/`F`를 보내도록 통일하면 삭제할 수 있다. |
+| 5 | 진료기록 목록 경로(`/patients/{patient_id}/medical-records`)를 둘 라우터 | 3장, 10장 | 진료기록 라우터 prefix를 `/medical-records`로 두면 이 경로가 들어가지 못한다. 환자 라우터에 두거나 prefix 없는 별도 라우터로 분리하는 방안을 C와 A·B가 합의한다. |
+| 6 | `medical_records`의 `updated_at` 기본값 | 9.3, 11.2 | `server_default` 확인은 `patients`만 했다. C·D가 `medical_records` 마이그레이션을 확인하고, 기본값이 없으면 두 예시의 `updated_at`을 `null`로 되돌린다. |
+| 7 | 비활성 계정(`is_active = false`)의 `403` 처리 | 2.2 | `require_staff`가 비활성 계정을 막는지 실제 코드로 확인한 뒤 2.2 문구를 유지할지 정한다. |
 
 ## 14. 구현 시 확인 사항
 
@@ -729,6 +730,7 @@ Access Token 유효기간은 30분이다. (User API 공통)
 16. API 응답 시간이 3초 이내인지 확인한다.
 17. `xray_image_url`(`/media/xray/...`)이 `main.py`의 `/media` 마운트 설정과 일치하고 브라우저에서 이미지가 표시되는지 확인한다.
 18. 공통 PR 머지 후 `uv run python -c "import app.main"`이 오류 없이 실행되고, `.env`에 `JWT_SECRET_KEY`가 설정되어 있는지 확인한다.
+19. `STAFF` 회원이 부서를 변경하면 `PENDING`으로 전환되어 환자·진료기록 API가 `403`을 반환하는지 확인한다.  
 
 ## 15. 변경 이력
 
@@ -737,3 +739,4 @@ Access Token 유효기간은 30분이다. (User API 공통)
 | v1.0 | A·B·C·D 파트 통합, 4일차 User API 공통 규칙(필드명, 페이지네이션, 에러 포맷, 날짜 형식, 인증 모듈)에 맞춰 정리 |
 | v1.1 | D파트 수정본 반영(진료기록 상세 조회 500 상태 코드, 인증·권한 보강, 이미지 URL 미확정 항목 추가), 안건을 담당자 알파벳 순으로 재정렬 |
 | v1.2 | 검토 결과 반영(4일차 우선): `require_medical_staff` 추가 및 진료기록 등록 `MEDICAL` 제한 확정, `updated_at` 예시와 NULL 설명 수정, 이미지 저장 경로 `/media/xray/...` 확정 및 `xray_image_url` 수정, `shooting_datetime` 서버 UTC 시각 저장, 증상 100자 초과 시 `…` 표기, DB UTC 저장 설명으로 KST 변환 문구 교체, 페이지네이션 검증 범위를 5일차 제안으로 명시, `normalize_phone()` 명시, 프론트엔드 `.items`·성별 비교 수정 사항 추가, 미확정 사항 장(13장) 신설, 공통 PR 반영(`TimestampMixin` 수정, `security.py`·`validators.py` 도입, `require_staff`·`require_medical_staff` 기준으로 인가 문구 정리, `require_roles` 제거) |
+| v1.3 | 프론트엔드를 명세서 기준으로 정리(API 경로·형식, Enum 값 통일), `STAFF` 부서 변경 시 `PENDING` 전환 정책 확정에 따라 13장 4번 삭제 및 2.1절 보완 |

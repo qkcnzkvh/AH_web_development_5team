@@ -500,9 +500,15 @@ Authorization: Bearer <access_token>
 - 허용 필드는 `department`, `phone_number`다.
 - 허용되지 않은 추가 필드는 무시한다.
 - 보내지 않은 필드는 기존 값을 유지한다.
-- 전화번호는 `normalize_phone()`으로 정규화하고 숫자만 저장·반환한다.
+- `STAFF` 회원이 `department`를 현재 값과 다른 값으로 변경하면 `role`이 `PENDING`으로 전환되며, 관리자(`ADMIN`)가 다시 승인(권한 변경)하기 전까지 `PENDING` 권한으로 제한된다.
+- 다음 경우에는 `role`을 유지한다.
+  - `ADMIN` 회원의 부서 변경
+  - 현재와 같은 부서로 저장하는 경우
+  - `phone_number`만 수정하는 경우
 
 ### 11.2 성공 응답
+
+- 부서 변경으로 `role`이 `PENDING`으로 전환된 경우, 응답의 `role`은 `PENDING`으로 반환된다.  
 
 **`200 OK`**
 
@@ -650,9 +656,11 @@ Authorization: Bearer <access_token>
 13. 서버에서 Refresh Token을 별도로 관리한다면 로그아웃 시 서버 측 폐기도 수행하는지 확인한다.
 14. Swagger UI 또는 API 테스트로 정상 요청과 오류 응답을 검증한다.
 15. API 응답 시간이 3초 이내인지 확인한다.
+16. `STAFF` 회원이 부서를 변경하면 `PENDING`으로 전환되고, `ADMIN`이나 동일 부서 저장·전화번호만 수정하는 경우에는 `role`이 유지되는지 확인한다.
 
 ## 17. 변경 이력
 
 | 버전 | 내용 |
 |---|---|
 | v1.0 | User API 통합 및 팀 합의 사항 반영 |
+| v1.1 | 부서 변경 시 `STAFF`는 `PENDING`으로 전환(관리자 재승인 필요), 프론트엔드 호출 경로·형식을 명세서 기준으로 정리 |
