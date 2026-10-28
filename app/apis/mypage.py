@@ -106,6 +106,12 @@ async def update_my_info(db: AsyncSession, user: User, body: MyPageUpdateRequest
         if owner is not None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=PHONE_NUMBER_CONFLICT)
 
+    # 부서는 환자·진료기록 등록 권한(MEDICAL)과 연결되므로, STAFF가 부서를 바꾸면
+    # 관리자가 다시 승인할 때까지 PENDING으로 되돌린다. (스스로 MEDICAL로 바꿔 등록 권한을 얻는 것 방지)
+    new_department = fields.get("department")
+    if new_department and new_department != user.department and user.role == Role.STAFF:
+        user.role = Role.PENDING
+
     for key, value in fields.items():
         setattr(user, key, value)
 
