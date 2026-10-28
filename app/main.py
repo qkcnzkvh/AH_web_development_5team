@@ -14,6 +14,8 @@ from app.apis.patient_read import router as patient_read_router
 from app.apis.medical_record import router as medical_record_router
 from app.apis.medical_record_read import router as medical_record_read_router
 from app.apis.practice_apis import router as practice_router
+from app.apis.pneumonia import router as pneumonia_router
+
 
 API_PREFIX = "/api/v1"
 
@@ -28,6 +30,7 @@ app.include_router(patient_write_router, prefix=API_PREFIX)  # 담당자 A: 환�
 app.include_router(patient_read_router, prefix=API_PREFIX)  # 담당자 B: 환자 목록·상세 조회
 app.include_router(medical_record_router, prefix=API_PREFIX)  # 담당자 C: 진료기록 등록·목록 조회
 app.include_router(medical_record_read_router, prefix=API_PREFIX) #담당자 D
+app.include_router(pneumonia_router, prefix=API_PREFIX)
 
 
 # NFR-USER-003: 모든 요청의 처리 시간 측정 (X-Process-Time 헤더, 3초 초과 시 경고 로그)
