@@ -171,6 +171,7 @@ const pages = {
                             <th>폐렴 여부</th>
                             <th>Confidence</th>
                             <th>사용 모델</th>
+                            <th>Heatmap</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -180,6 +181,7 @@ const pages = {
                                 <td><strong>${a.is_pneumonia ? 'Positive' : 'Negative'}</strong></td>
                                 <td>${a.confidence}%</td>
                                 <td>${a.ai_model}</td>
+                                <td>${a.heatmap_url ? `<img src="${a.heatmap_url}" alt="Heatmap" style="max-width: 120px;">` : '-'}</td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -470,12 +472,18 @@ const pages = {
     },
 
     async handlePredict(recordId) {
+        // 예측 중에는 버튼을 막아 중복 요청을 방지한다.
+        const btn = document.getElementById('predict-btn');
+        btn.disabled = true;
+        btn.innerText = '분석 중...';
         try {
-            await apis.predictPneumonia(recordId);
+            await apis.predictPneumonia(recordId);   // 201(새 추론), 200(저장된 결과) 모두 성공
             utils.showAlert('AI 예측이 완료되었습니다.', 'success');
-            navigate(`/medical-records/${recordId}`, false);
+            navigate(`/medical-records/${recordId}`, false);   // 화면을 다시 그려 결과 목록 표시
         } catch (err) {
             utils.showAlert(`AI 예측 실패: ${err.message}`, 'error');
+            btn.disabled = false;
+            btn.innerText = 'AI 예측 결과보기';
         }
     }
 };

@@ -302,12 +302,8 @@ const apis = {
      * [REQ-PRED-002] 특정 진료기록에 대해 수행된 모든 AI 예측 결과 목록을 조회한다.
      */
     async getMedicalRecordAnalyses(recordId) {
-        // AI 분석 API는 아직 구현 전이므로, 실패해도 진료기록 상세 화면은 빈 목록으로 표시한다.
-        try {
-            return await this.request(`/medical-records/${recordId}/analyses`, {}, true);
-        } catch (err) {
-            return [];
-        }
+        // 결과가 없으면 서버가 200 []을 주므로 오류를 숨기지 않는다. (403·500 등은 그대로 알림)
+        return await this.request(`/medical-records/${recordId}/analyses`);
     },
 
     // --- Admin ---
