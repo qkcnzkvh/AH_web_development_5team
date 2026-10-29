@@ -157,3 +157,30 @@ async def predict_medical_record(
 
     await db.refresh(result)  # DB가 채운 id, created_at 로드
     return result
+
+
+# ============================================================
+# REQ-PRED-002 AI 폐렴 예측 결과 목록 조회 (명세서 5장)
+# ============================================================
+
+@router.get(
+    "/{record_id}/analyses",
+    summary="AI 폐렴 예측 결과 목록 조회 (REQ-PRED-002)",
+    response_model=list[AiAnalysisResponse],
+)
+async def list_analyses(
+    record_id: int = Path(ge=1, description="진료기록 고유 ID"),
+    _user: User = Depends(require_staff),
+    db: AsyncSession = Depends(async_get_db),
+):
+    """진료기록의 예측 결과를 최신순으로 반환한다. 결과가 없으면 빈 배열(200)."""
+    if await db.get(MedicalRecord, record_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, RECORD_NOT_FOUND_MESSAGE)
+
+    # 결과는 진료기록당 모델 수만큼만 쌓이므로 페이지네이션 없이 배열로 반환 (명세서 5.2)
+    result = await db.execute(
+        select(AiAnalysisResult)
+        .where(AiAnalysisResult.record_id == record_id)
+        .order_by(AiAnalysisResult.created_at.desc(), AiAnalysisResult.id.desc())
+    )
+    return result.scalars().all()
