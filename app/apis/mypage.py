@@ -33,6 +33,7 @@ class MyPageResponse(BaseModel):
     # User ORM 객체를 그대로 응답 모델로 변환할 수 있게 함
     model_config = ConfigDict(from_attributes=True)
 
+    id: int  # 추가: 로그인한 사용자 ID
     name: str | None
     email: str | None
     department: Department
